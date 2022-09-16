@@ -101,9 +101,8 @@ open class ChartDataSet: ChartBaseDataSet
 
         guard !isEmpty else { return }
         
-        let indexFrom = entryIndex(x: fromX, closestToY: .nan, rounding: .closest)
-        var indexTo = entryIndex(x: toX, closestToY: .nan, rounding: .up)
-        if indexTo == -1 { indexTo = entryIndex(x: toX, closestToY: .nan, rounding: .closest) }
+        let indexFrom = entryIndex(x: fromX, closestToY: .nan, rounding: .down)
+        let indexTo = entryIndex(x: toX, closestToY: .nan, rounding: .up)
         
         guard indexTo >= indexFrom else { return }
         // only recalculate y
@@ -198,11 +197,9 @@ open class ChartDataSet: ChartBaseDataSet
     open override func entriesForXValue(_ xValue: Double) -> [ChartDataEntry]
     {
         let match: (ChartDataEntry) -> Bool = { $0.x == xValue }
-        var partitioned = self.entries
-        _ = partitioned.partition(by: match)
-        let i = partitioned.partitioningIndex(where: match)
+        let i = partitioningIndex(where: match)
         guard i < endIndex else { return [] }
-        return partitioned[i...].prefix(while: match)
+        return self[i...].prefix(while: match)
     }
     
     /// - Parameters:
@@ -217,9 +214,9 @@ open class ChartDataSet: ChartBaseDataSet
         rounding: ChartDataSetRounding) -> Int
     {
         var closest = partitioningIndex { $0.x >= xValue }
-        guard closest < endIndex else { return index(before: endIndex) }
+        guard closest < endIndex else { return -1 }
 
-        var closestXValue = self[closest].x
+        let closestXValue = self[closest].x
 
         switch rounding {
         case .up:
@@ -237,18 +234,7 @@ open class ChartDataSet: ChartBaseDataSet
             }
 
         case .closest:
-            // The closest value in the beginning of this function
-            // `var closest = partitioningIndex { $0.x >= xValue }`
-            // doesn't guarantee closest rounding method
-            if closest > startIndex {
-                let distanceAfter = abs(self[closest].x - xValue)
-                let distanceBefore = abs(self[index(before: closest)].x - xValue)
-                if distanceBefore < distanceAfter
-                {
-                    closest = index(before: closest)
-                }
-                closestXValue = self[closest].x
-            }
+            break
         }
 
         // Search by closest to y-value
@@ -438,11 +424,6 @@ extension ChartDataSet: RandomAccessCollection {
 
 // MARK: RangeReplaceableCollection
 extension ChartDataSet: RangeReplaceableCollection {
-    public func replaceSubrange<C>(_ subrange: Swift.Range<Index>, with newElements: C) where C : Collection, Element == C.Element {
-        entries.replaceSubrange(subrange, with: newElements)
-        notifyDataSetChanged()
-    }
-    
     public func append(_ newElement: Element) {
         calcMinMax(entry: newElement)
         entries.append(newElement)

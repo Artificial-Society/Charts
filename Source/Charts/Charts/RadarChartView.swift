@@ -124,6 +124,7 @@ open class RadarChartView: PieRadarChartViewBase
         }
 
         renderer.drawData(context: context)
+        
 
         if valuesToHighlight()
         {

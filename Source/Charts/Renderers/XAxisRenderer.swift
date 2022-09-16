@@ -12,13 +12,12 @@
 import Foundation
 import CoreGraphics
 
-
 @objc(ChartXAxisRenderer)
 open class XAxisRenderer: NSObject, AxisRenderer
 {
-    @objc public let viewPortHandler: ViewPortHandler
-    @objc public let axis: XAxis
-    @objc public let transformer: Transformer?
+    public let viewPortHandler: ViewPortHandler
+    public let axis: XAxis
+    public let transformer: Transformer?
 
     @objc public init(viewPortHandler: ViewPortHandler, axis: XAxis, transformer: Transformer?)
     {
@@ -157,7 +156,8 @@ open class XAxisRenderer: NSObject, AxisRenderer
     {
         let longest = axis.getLongestLabel()
         
-        let labelSize = longest.size(withAttributes: [.font: axis.labelFont])
+//        let labelSize = longest.size(withAttributes: [.font: axis.labelFont])
+        let labelSize = makeAttrStringForLesser(longest)?.size() ?? makeAttrStringForLesser("00\n00월 00일")!.size()
 
         let labelWidth = labelSize.width
         let labelHeight = labelSize.height
@@ -279,14 +279,17 @@ open class XAxisRenderer: NSObject, AxisRenderer
             guard viewPortHandler.isInBoundsX(position.x) else { continue }
             
             let label = axis.valueFormatter?.stringForValue(axis.entries[i], axis: axis) ?? ""
-            let labelns = label as NSString
+            
+            guard let attrString = makeAttrStringForLesser(label) else { return }
             
             if axis.isAvoidFirstLastClippingEnabled
             {
                 // avoid clipping of the last
                 if i == axis.entryCount - 1 && axis.entryCount > 1
                 {
-                    let width = labelns.boundingRect(with: labelMaxSize, options: .usesLineFragmentOrigin, attributes: labelAttrs, context: nil).size.width
+//                    let width = labelns.boundingRect(with: labelMaxSize, options: .usesLineFragmentOrigin, attributes: labelAttrs, context: nil).size.width
+                    let width = attrString.boundingRect(with: labelMaxSize, options: .usesDeviceMetrics, context: nil).size.width
+//                    boundingRect(with: labelMaxSize, options: .usesLineFragmentOrigin, context: nil).size.width
                     
                     if width > viewPortHandler.offsetRight * 2.0,
                         position.x + width > viewPortHandler.chartWidth
@@ -296,7 +299,8 @@ open class XAxisRenderer: NSObject, AxisRenderer
                 }
                 else if i == 0
                 { // avoid clipping of the first
-                    let width = labelns.boundingRect(with: labelMaxSize, options: .usesLineFragmentOrigin, attributes: labelAttrs, context: nil).size.width
+                    let width = attrString.boundingRect(with: labelMaxSize, options: .usesDeviceMetrics, context: nil).size.width
+//                    boundingRect(with: labelMaxSize, options: .usesLineFragmentOrigin, context: nil).size.width
                     position.x += width / 2.0
                 }
             }
@@ -485,4 +489,40 @@ open class XAxisRenderer: NSObject, AxisRenderer
                          attributes: [.font: limitLine.valueFont,
                                       .foregroundColor: limitLine.valueTextColor])
     }
+    
+    private func makeAttrStringForLesser(_ text: String) -> NSMutableAttributedString? {
+        let label = text
+        let labelns = text as NSString
+        
+        guard let topTextSplit = label.split(separator: "\n").first else { return nil }
+        guard let bottomTextSplit = label.split(separator: "\n").last else { return nil }
+        let scoreText = String(topTextSplit)
+        let dateText = String(bottomTextSplit)
+        
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        
+        let attrString = NSMutableAttributedString(string: label, attributes: [.paragraphStyle: paragraph])
+        
+        guard let scoreFontRaw = UIFont(name: "NotoSansKR-Bold", size: 17.0) else { return nil }
+        let fontMetrics = UIFontMetrics(forTextStyle: .title3)
+        let scoreFont = fontMetrics.scaledFont(for: scoreFontRaw)
+        
+        guard let dateFontRaw = UIFont(name: "NotoSansKR-Bold", size: 12.0) else { return nil }
+        let dateFontMetrics = UIFontMetrics(forTextStyle: .footnote)
+        let dateFont = dateFontMetrics.scaledFont(for: dateFontRaw)
+    
+        let lesserGreen = UIColor(red: 22.0/255.0, green: 215.0/255.0, blue: 132.0/255.0, alpha: 1)
+        let lesserGray = UIColor(red: 199.0/255.0, green: 199.0/255.0, blue: 199.0/255.0, alpha: 1)
+        
+        attrString.addAttributes([.foregroundColor: lesserGreen,
+                                  .font: scoreFont],
+                                 range: labelns.range(of: scoreText))
+        attrString.addAttributes([.foregroundColor: lesserGray,
+                                  .font: dateFont],
+                                 range: labelns.range(of: dateText))
+        
+        return attrString
+    }
 }
+

@@ -119,7 +119,7 @@ extension CGPoint
 extension CGContext
 {
 
-    public func drawImage(_ image: NSUIImage, atCenter center: CGPoint, size: CGSize)
+    open func drawImage(_ image: NSUIImage, atCenter center: CGPoint, size: CGSize)
     {
         var drawOffset = CGPoint()
         drawOffset.x = center.x - (size.width / 2)
@@ -157,7 +157,7 @@ extension CGContext
         NSUIGraphicsPopContext()
     }
 
-    public func drawText(_ text: String, at point: CGPoint, align: TextAlignment, anchor: CGPoint = CGPoint(x: 0.5, y: 0.5), angleRadians: CGFloat = 0.0, attributes: [NSAttributedString.Key : Any]?)
+    open func drawText(_ text: String, at point: CGPoint, align: TextAlignment, anchor: CGPoint = CGPoint(x: 0.5, y: 0.5), angleRadians: CGFloat = 0.0, attributes: [NSAttributedString.Key : Any]?)
     {
         let drawPoint = getDrawPoint(text: text, point: point, align: align, attributes: attributes)
         
@@ -175,7 +175,7 @@ extension CGContext
         }
     }
     
-    public func drawText(_ text: String, at point: CGPoint, anchor: CGPoint = CGPoint(x: 0.5, y: 0.5), angleRadians: CGFloat, attributes: [NSAttributedString.Key : Any]?)
+    open func drawText(_ text: String, at point: CGPoint, anchor: CGPoint = CGPoint(x: 0.5, y: 0.5), angleRadians: CGFloat, attributes: [NSAttributedString.Key : Any]?)
     {
         var drawOffset = CGPoint()
 
@@ -283,8 +283,13 @@ extension CGContext
 
             rect.origin.x += point.x
             rect.origin.y += point.y
-
-            (text as NSString).draw(with: rect, options: .usesLineFragmentOrigin, attributes: attributes, context: nil)
+            
+            let label = text
+            guard let attrString = makeAttrStringForLesser(label) else { return }
+            
+            rect.size = attrString.size()
+            
+            attrString.draw(with: rect, options: .usesLineFragmentOrigin, context: nil)
         }
 
         NSUIGraphicsPopContext()
@@ -292,7 +297,47 @@ extension CGContext
 
     func drawMultilineText(_ text: String, at point: CGPoint, constrainedTo size: CGSize, anchor: CGPoint, angleRadians: CGFloat, attributes: [NSAttributedString.Key : Any]?)
     {
-        let rect = text.boundingRect(with: size, options: .usesLineFragmentOrigin, attributes: attributes, context: nil)
+        guard let attrString = makeAttrStringForLesser(text) else { return }
+        let rect = attrString.boundingRect(with: size, options: .usesLineFragmentOrigin, context: nil)
+//        text.boundingRect(with: size, options: .usesLineFragmentOrigin, attributes: attributes, context: nil)
         drawMultilineText(text, at: point, constrainedTo: size, anchor: anchor, knownTextSize: rect.size, angleRadians: angleRadians, attributes: attributes)
+    }
+    
+    private func makeAttrStringForLesser(_ text: String) -> NSMutableAttributedString? {
+        
+        let label = text
+        let labelns = text as NSString
+        
+        let isNaN = text == "00\n00월 00일"
+        
+        guard let topTextSplit = label.split(separator: "\n").first else { return nil }
+        guard let bottomTextSplit = label.split(separator: "\n").last else { return nil }
+        let scoreText = String(topTextSplit)
+        let dateText = String(bottomTextSplit)
+        
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        
+        let attrString = NSMutableAttributedString(string: label, attributes: [.paragraphStyle: paragraph])
+        
+        guard let scoreFontRaw = UIFont(name: "NotoSansKR-Bold", size: 17.0) else { return nil }
+        let fontMetrics = UIFontMetrics(forTextStyle: .title3)
+        let scoreFont = fontMetrics.scaledFont(for: scoreFontRaw)
+        
+        guard let dateFontRaw = UIFont(name: "NotoSansKR-Bold", size: 12.0) else { return nil }
+        let dateFontMetrics = UIFontMetrics(forTextStyle: .footnote)
+        let dateFont = dateFontMetrics.scaledFont(for: dateFontRaw)
+    
+        let lesserGreen = UIColor(red: 22.0/255.0, green: 215.0/255.0, blue: 132.0/255.0, alpha: 1)
+        let lesserGray = UIColor(red: 199.0/255.0, green: 199.0/255.0, blue: 199.0/255.0, alpha: 1)
+        
+        attrString.addAttributes([.foregroundColor: isNaN ? .white : lesserGreen,
+                                  .font: scoreFont],
+                                 range: labelns.range(of: scoreText))
+        attrString.addAttributes([.foregroundColor: isNaN ? .white : lesserGray,
+                                  .font: dateFont],
+                                 range: labelns.range(of: dateText))
+        
+        return attrString
     }
 }
